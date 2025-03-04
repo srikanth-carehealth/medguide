@@ -6,24 +6,41 @@ import json
 import time
 from utils.claude_api import ClaudeAPI
 
-def render_note_generator(condition_type="diabetes"):
+def render_note_generator():
     # Initialize Claude API
     claude_api = ClaudeAPI(st.session_state.get('claude_api_key', 'demo_key'))
     
-    # Current patient context
+    # Current patient context and condition
     patient = st.session_state.current_patient
+    condition_type = st.session_state.get('selected_condition', 'diabetes')
     
     # Set theme based on condition type
-    if condition_type == "her2":
+    if "her2" in condition_type or "breast cancer" in condition_type:
         theme_color = "#db2777"  # pink-600
         theme_light = "#fce7f3"  # pink-100
         theme_title = "HER2+ Breast Cancer Treatment Plan"
-        theme_subtitle = "Neoadjuvant regimen with guideline references for dose-dense AC-T with dual HER2 blockade"
-    else:
+        theme_subtitle = "Neoadjuvant regimen with guideline references"
+    elif "diabetes" in condition_type:
         theme_color = "#2563eb"  # blue-600
         theme_light = "#dbeafe"  # blue-100
-        theme_title = "Assessment & Plan Generator"
-        theme_subtitle = "Generates clinically relevant notes based on patient data and current guidelines"
+        theme_title = "Diabetes Management Plan"
+        theme_subtitle = "Glycemic control and complication prevention"
+    elif "hypertension" in condition_type or "blood pressure" in condition_type:
+        theme_color = "#059669"  # emerald-600
+        theme_light = "#d1fae5"  # emerald-100
+        theme_title = "Hypertension Management Plan"
+        theme_subtitle = "Blood pressure management and cardiovascular risk reduction"
+    elif "lipid" in condition_type or "cholesterol" in condition_type:
+        theme_color = "#7c3aed"  # violet-600
+        theme_light = "#ede9fe"  # violet-100
+        theme_title = "Lipid Management Plan"
+        theme_subtitle = "Cholesterol management and cardiovascular risk reduction"
+    else:
+        # Default/generic theme for any other condition
+        theme_color = "#6366f1"  # indigo-600
+        theme_light = "#e0e7ff"  # indigo-100
+        theme_title = f"{patient.get('diagnosis', condition_type.title())} Management Plan"
+        theme_subtitle = "Evidence-based recommendations for patient care"
     
     # Page header
     st.markdown(f"""
@@ -71,7 +88,7 @@ def render_note_generator(condition_type="diabetes"):
         </div>
         """, unsafe_allow_html=True)
     
-    # Generate note if it doesn't exist in session state
+    # Generate note if it doesn't exist in session state or condition has changed
     if 'current_note' not in st.session_state or st.session_state.get('current_note_type') != condition_type:
         with st.spinner("Generating clinical note..."):
             response = claude_api.generate_clinical_note(patient, condition_type)

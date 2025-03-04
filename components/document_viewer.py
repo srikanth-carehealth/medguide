@@ -66,72 +66,107 @@ def render_document_viewer(guideline, patient):
     with col2:
         st.markdown("### AI Assistant")
         
-        # Patient-specific recommendations
-        st.markdown("#### Patient-specific Recommendations")
-        
-        # Get recommendations from Claude API
-        claude_api = ClaudeAPI(st.session_state.get('claude_api_key', 'demo_key'))
-        recommendations = claude_api.query_guidelines(
-            query="relevant recommendations for this patient",
-            patient_context=patient,
-            document_ids=[guideline['id']]
-        ).get('recommendations', [])
-        
-        for rec in recommendations:
-            st.markdown(f"""
-            <div style="padding: 0.75rem; background-color: #dbeafe; border-radius: 0.5rem; margin-bottom: 0.75rem; font-size: 0.875rem;">
-                <p style="margin-bottom: 0.5rem;">{rec.get('explanation', '')}</p>
-                <p style="font-weight: 500;">"{rec.get('text', '')}"</p>
-                <p style="font-size: 0.75rem; color: #3b82f6; margin-top: 0.5rem;">Page {rec.get('page', '')}, {rec.get('source', '')}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Ask about document
-        st.markdown("#### Ask about this document")
-        question = st.text_input("Ask a question about this guideline", key="guideline_question")
-        # Inside your "Ask" button click handler:
-        if st.button("Ask", key="ask_guideline_button"):
-            if question:
-                # Add debug info
-                st.write(f"Debug: Question received: '{question}'")
+        # Initialize message history if not exists
+        if 'messages' not in st.session_state:
+            st.session_state.messages = []
+            
+            # Add initial system message about patient context
+            patient_info = f"Patient: {patient.get('name', 'Unknown')}, {patient.get('age', 'Unknown')} years old"
+            if 'vitals' in patient and 'bloodPressure' in patient['vitals']:
+                patient_info += f", BP {patient['vitals']['bloodPressure']}"
+            if 'labs' in patient and 'HbA1c' in patient['labs']:
+                patient_info += f", HbA1c {patient['labs']['HbA1c']}%"
                 
-                # Query Claude about the document
-                with st.spinner("Getting answer..."):
-                    claude_api = ClaudeAPI(st.session_state.get('claude_api_key', 'demo_key'))
+            st.session_state.messages.append({
+                "role": "system", 
+                "content": f"I'm analyzing {guideline['title']} for {patient_info}."
+            })
+        
+        # Patient-specific recommendations - only add to history if not already there
+        if not any(msg.get("content", "").startswith("Based on this guideline") for msg in st.session_state.messages if msg.get("role") == "assistant"):
+            # Get recommendations from Claude API
+            claude_api = ClaudeAPI(st.session_state.get('claude_api_key', 'demo_key'))
+            recommendations = claude_api.query_guidelines(
+                query="best medication regimen and relevant recommendations for this patient",
+                patient_context=patient,
+                document_ids=[guideline['id']]
+            ).get('recommendations', [])
+            
+            # Format recommendations as a single message
+            if recommendations:
+                rec_text = "Based on this guideline and the patient's data, here are my recommendations:\n\n"
+                
+                # Deduplicate recommendations by text content
+                unique_recs = {}
+                for rec in recommendations:
+                    unique_recs[rec.get('text', '')] = rec
+                
+                for rec in unique_recs.values():
+                    rec_text += f"• {rec.get('explanation', '')}\n"
+                    rec_text += f"  \"{rec.get('text', '')}\"\n"
+                    rec_text += f"  Source: {rec.get('source', '')}, Page {rec.get('page', '')}\n\n"
+                
+                # Add to session state
+                st.session_state.messages.append({"role": "assistant", "content": rec_text})
+        
+        # Display message history
+        for message in st.session_state.messages:
+            if message["role"] != "system":  # Don't display system messages
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+        
+        # Query interface
+        prompt = st.chat_input("Ask about this guideline for your patient...")
+        
+        if prompt:
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Display user message
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            # Get Claude response
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    # Create message placeholder
+                    message_placeholder = st.empty()
                     
-                # Get the guideline content
-                content = get_guideline_content(guideline['id'])
-                st.write(f"Debug: Content length: {len(content)} characters")
-                
-                # Query Claude using the document content and the question
-                st.write("Debug: Sending query to Claude API...")
-                response = claude_api.query_guidelines(
-                    query=question,
-                    patient_context=patient,
-                    document_text=content
-                )
-                
-                # Inspect the raw response
-                st.write("Debug: Raw API response:")
-                st.write(response)
-                
-                # Display the response
-                recommendations = response.get('recommendations', [])
-                st.write(f"Debug: Found {len(recommendations)} recommendations")
-                
-                if recommendations:
-                    for rec in recommendations:
-                        st.markdown(f"""
-                        <div style="padding: 0.75rem; background-color: #f0f9ff; border-radius: 0.5rem; margin-top: 0.75rem; font-size: 0.875rem;">
-                            <p>{rec.get('explanation', '')}</p>
-                            <p style="font-style: italic;">"{rec.get('text', '')}"</p>
-                            <p style="font-size: 0.75rem; color: #3b82f6; margin-top: 0.5rem;">Page {rec.get('page', '')}, {rec.get('source', '')}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("I couldn't find a specific answer to your question in this document. Please try rephrasing or ask a different question.")
+                    # Query Claude
+                    claude_api = ClaudeAPI(st.session_state.get('claude_api_key', 'demo_key'))
+                    response = claude_api.query_guidelines(
+                        query=prompt,
+                        patient_context=patient,
+                        document_text=content
+                    )
+                    
+                    # Format the response
+                    recommendations = response.get('recommendations', [])
+                    full_response = ""
+                    
+                    if recommendations:
+                        for rec in recommendations:
+                            if rec.get('explanation'):
+                                full_response += f"{rec.get('explanation')}\n\n"
+                            
+                            if rec.get('text'):
+                                full_response += f"\"{rec.get('text')}\"\n\n"
+                                
+                            if rec.get('source') or rec.get('page'):
+                                source_info = f"Source: {rec.get('source', '')}"
+                                if rec.get('page') and rec.get('page') != 'N/A':
+                                    source_info += f", Page {rec.get('page')}"
+                                full_response += f"*{source_info}*\n\n"
+                    else:
+                        full_response = "I couldn't find specific information about that in the guidelines. Is there anything else you'd like to know?"
+                    
+                    # Display response
+                    message_placeholder.markdown(full_response)
+                    
+                    # Add response to message history
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
         
-        # Related guidelines
+        # Related guidelines (kept from original)
         st.markdown("#### Related Guidelines")
         
         st.markdown("""

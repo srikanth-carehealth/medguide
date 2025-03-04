@@ -127,9 +127,8 @@ if st.session_state.current_page == 'home':
 elif st.session_state.current_page == 'prompts':
     render_clinician_prompts()
 elif st.session_state.current_page == 'note':
-    render_note_generator('diabetes')
-elif st.session_state.current_page == 'her2_note':
-    render_note_generator('her2')
+    # No need to pass condition type as parameter, it reads from session state
+    render_note_generator()
 
 # Footer
 st.markdown("""

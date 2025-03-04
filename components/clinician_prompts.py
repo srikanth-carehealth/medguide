@@ -77,13 +77,13 @@ def render_clinician_prompts():
                         <span>{source}</span>
                     </div>
                     """
-                
-                st.markdown(f"""
-                <div class="chat-message assistant-message">
-                    <p>{content}</p>
-                    {source_html}
-                </div>
-                """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="chat-message assistant-message">
+                        <p>{content}</p>
+                        {source_html}
+                    </div>
+                    """, unsafe_allow_html=True)
 
     # Display suggested prompts in two columns
     if len(st.session_state.chat_history) < 2:  # Only show if chat just started
@@ -128,38 +128,28 @@ def handle_user_input(user_input, claude_api, patient):
     
     # Show thinking indicator
     with st.spinner("AI is thinking..."):
-        # Check if the user is asking for a note
-        if "assessment" in user_input.lower() and "plan" in user_input.lower() and "note" in user_input.lower():
-            # Generate clinical note
-            response = claude_api.generate_clinical_note(patient, "diabetes" if "diabetes" in patient["diagnosis"].lower() else "general")
+        # Get response from Claude API
+        response = claude_api.query_guidelines(user_input, patient)
+        recommendations = response.get("recommendations", [])
+        
+        if recommendations:
+            rec = recommendations[0]  # Get first recommendation
             
-            # Add assistant response with note
+            # Sanitize content to properly display in HTML
+            explanation = rec.get('explanation', '').replace('<', '&lt;').replace('>', '&gt;')
+            text = rec.get('text', '').replace('<', '&lt;').replace('>', '&gt;')
+            source_text = f"{rec.get('source', '')}, page {rec.get('page', '')}"
+            
             st.session_state.chat_history.append({
                 "role": "assistant",
-                "content": "I've prepared an assessment and plan based on this patient's information and relevant guidelines:",
-                "is_note": True,
-                "note": {
-                    "title": response.get("title", "Clinical Note"),
-                    "content": response.get("content", "")
-                }
+                "content": f"{explanation}\n\n\"{text}\"",
+                "source": source_text
             })
         else:
-            # Query guidelines
-            response = claude_api.query_guidelines(user_input, patient)
-            recommendations = response.get("recommendations", [])
-            
-            if recommendations:
-                rec = recommendations[0]  # Get first recommendation
-                st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "content": f"{rec.get('explanation', '')}\n\n\"{rec.get('text', '')}\"",
-                    "source": f"{rec.get('source', '')}, page {rec.get('page', '')}"
-                })
-            else:
-                st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "content": "I couldn't find specific guideline recommendations for your query. Please try asking a different question or provide more context."
-                })
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": "I couldn't find specific guideline recommendations for your query. Please try asking a different question or provide more context."
+            })
     
     # Rerun to update the UI
     st.rerun()

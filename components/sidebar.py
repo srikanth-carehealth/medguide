@@ -18,16 +18,41 @@ def render_sidebar():
         if st.button("💬 Ask Clinical Questions", use_container_width=True):
             st.session_state.current_page = 'prompts'
             st.rerun()
-            
-        if st.button("📝 Generate Note (Diabetes)", use_container_width=True):
-            st.session_state.current_page = 'note'
-            st.session_state.current_patient = get_sample_patient('diabetes')
-            st.rerun()
-            
-        if st.button("📝 Generate Note (HER2+)", use_container_width=True):
-            st.session_state.current_page = 'her2_note'
-            st.session_state.current_patient = get_sample_patient('her2')
-            st.rerun()
+        
+        # Note Generator with Custom Condition
+        st.markdown("### Generate Note")
+        
+        # Custom condition input
+        condition = st.text_input("Enter medical condition", value="Diabetes")
+        
+        # Sample conditions suggestions
+        st.caption("Example conditions: Diabetes, HER2+ Breast Cancer, Hypertension, Hyperlipidemia")
+        
+        # Generate note button
+        if st.button("📝 Generate Note", use_container_width=True):
+            if condition:
+                # Store condition in session state (lowercase for consistent processing)
+                st.session_state.selected_condition = condition.lower()
+                
+                # Set appropriate patient sample based on known conditions or use generic
+                if "diabetes" in condition.lower():
+                    patient_type = "diabetes"
+                elif "her2" in condition.lower() or "breast cancer" in condition.lower():
+                    patient_type = "her2"
+                else:
+                    # For unknown conditions, use generic patient with the custom diagnosis
+                    patient_type = "generic"
+                
+                # Get patient data and update diagnosis if using generic
+                patient = get_sample_patient(patient_type)
+                if patient_type == "generic":
+                    patient["diagnosis"] = condition
+                
+                st.session_state.current_patient = patient
+                st.session_state.current_page = 'note'
+                st.rerun()
+            else:
+                st.error("Please enter a medical condition")
         
         st.markdown("<hr>", unsafe_allow_html=True)
         

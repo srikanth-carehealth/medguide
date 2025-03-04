@@ -75,7 +75,7 @@ def get_sample_patient(condition_type: str = "diabetes") -> Dict[str, Any]:
                 "LVEF": "62%"
             }
         }
-    else:  # diabetes or default
+    elif condition_type == "diabetes":
         return {
             "id": "p001",
             "name": "James Wilson",
@@ -86,6 +86,18 @@ def get_sample_patient(condition_type: str = "diabetes") -> Dict[str, Any]:
                 "HbA1c": "8.2%",
                 "BP": "142/88",
                 "LDL": "138mg/dL"
+            }
+        }
+    else:  # generic patient for any other condition
+        return {
+            "id": "p003",
+            "name": "Alex Morgan",
+            "age": 52,
+            "gender": "male",
+            "diagnosis": condition_type.title(),  # This will be overwritten
+            "recentLabs": {
+                "CBC": "WNL",
+                "CMP": "WNL"
             }
         }
 
