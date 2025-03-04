@@ -1,10 +1,4 @@
 import streamlit as st
-import os
-from PIL import Image
-import base64
-from datetime import datetime
-import sys
-
 
 from components.sidebar import render_sidebar
 from components.document_viewer import render_document_viewer
