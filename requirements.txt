@@ -1,5 +1,5 @@
-streamlit==1.27.0
-PyPDF2==3.0.1
-requests==2.31.0
+streamlit
+PyPDF2
+requests
 pillow
-python-dotenv==1.0.0
+python-dotenv
