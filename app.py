@@ -118,12 +118,16 @@ def get_patient_diagnosis(patient_data):
     if not patient_data:
         return ""
     
+    diagnosis = ""
     if 'extension' in patient_data:
         for ext in patient_data.get('extension', []):
             if 'url' in ext and 'diagnosis' in ext['url']:
-                return sanitize_text(ext.get('valueString', ''))
+                diagnosis = ext.get('valueString', '')
+                print(f"Extracted diagnosis from FHIR data: {diagnosis}")
+                return sanitize_text(diagnosis)
     
-    return ""
+    print(f"No diagnosis found in FHIR data. Defaulting to: {diagnosis}")
+    return diagnosis
 
 def get_patient_labs(patient_data):
     if not patient_data:
@@ -146,7 +150,7 @@ def get_patient_labs(patient_data):
 # Function to fetch patient data from Express server
 def fetch_patient_data():
     try:
-        response = requests.get('http://localhost:3001/api/patient')
+        response = requests.get('http://localhost:8080/api/patient')
         if response.status_code == 200:
             raw_data = response.json()
             print(f"Raw FHIR patient data: {raw_data}")
@@ -166,7 +170,7 @@ def refresh_patient_data():
             st.session_state.current_patient = create_patient_object(fhir_patient)
             st.session_state.fhir_patient = fhir_patient
             st.success("✅ Patient data refreshed successfully!")
-            st.rerun()  # Replaced st.experimental_rerun() with st.rerun()
+            st.rerun()
         else:
             st.error("❌ Failed to refresh patient data from server")
 
@@ -191,6 +195,7 @@ if 'current_patient' not in st.session_state:
         st.session_state.fhir_patient = fhir_patient
     else:
         # Fallback to sample data if server fetch fails
+        print("Falling back to sample patient data due to server fetch failure.")
         st.session_state.current_patient = get_sample_patient('diabetes')
         st.session_state.fhir_patient = None
 if 'chat_history' not in st.session_state:
