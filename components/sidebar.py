@@ -2,7 +2,7 @@
 # components/sidebar.py
 # =====================================
 import streamlit as st
-from data.sample_data import get_sample_guidelines, get_sample_uploaded_docs, get_sample_patient
+from data.sample_data import get_sample_guidelines, get_sample_uploaded_docs
 
 def render_sidebar():
     with st.sidebar:
@@ -35,21 +35,11 @@ def render_sidebar():
                 # Store condition in session state (lowercase for consistent processing)
                 st.session_state.selected_condition = condition.lower()
                 
-                # Set appropriate patient sample based on known conditions or use generic
-                if "diabetes" in condition.lower():
-                    patient_type = "diabetes"
-                elif "her2" in condition.lower() or "breast cancer" in condition.lower():
-                    patient_type = "her2"
-                else:
-                    # For unknown conditions, use generic patient with the custom diagnosis
-                    patient_type = "generic"
+                # Ensure a patient exists in session state
+                if 'current_patient' not in st.session_state or not st.session_state.current_patient:
+                    st.error("No patient data available. Please refresh the patient data.")
+                    return
                 
-                # Get patient data and update diagnosis if using generic
-                patient = get_sample_patient(patient_type)
-                if patient_type == "generic":
-                    patient["diagnosis"] = condition
-                
-                st.session_state.current_patient = patient
                 st.session_state.current_page = 'note'
                 st.rerun()
             else:
