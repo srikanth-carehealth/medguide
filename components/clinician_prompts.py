@@ -4,6 +4,7 @@
 import streamlit as st
 import json
 import time
+import re
 from utils.claude_api import ClaudeAPI
 
 def render_clinician_prompts():
@@ -69,21 +70,23 @@ def render_clinician_prompts():
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                source_html = ""
+                # Display the assistant message with proper source formatting
+                st.markdown(f"""
+                <div class="chat-message assistant-message">
+                    <p>{content}</p>
+                """, unsafe_allow_html=True)
+                
+                # Add source information if available
                 if source:
-                    source_html = f"""
+                    st.markdown(f"""
                     <div style="display: flex; align-items: center; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background-color: #3b82f6; color: white; border-radius: 0.25rem; font-size: 0.75rem; width: fit-content;">
                         <span style="margin-right: 0.25rem;">📚</span>
                         <span>{source}</span>
                     </div>
-                    """
-                    
-                    st.markdown(f"""
-                    <div class="chat-message assistant-message">
-                        <p>{content}</p>
-                        {source_html}
-                    </div>
                     """, unsafe_allow_html=True)
+                
+                # Close the assistant message div
+                st.markdown("</div>", unsafe_allow_html=True)
 
     # Display suggested prompts in two columns
     if len(st.session_state.chat_history) < 2:  # Only show if chat just started
@@ -135,9 +138,8 @@ def handle_user_input(user_input, claude_api, patient):
         if recommendations:
             rec = recommendations[0]  # Get first recommendation
             
-            # Sanitize content to properly display in HTML
-            explanation = rec.get('explanation', '').replace('<', '&lt;').replace('>', '&gt;')
-            text = rec.get('text', '').replace('<', '&lt;').replace('>', '&gt;')
+            explanation = rec.get('explanation', '')
+            text = rec.get('text', '')
             source_text = f"{rec.get('source', '')}, page {rec.get('page', '')}"
             
             st.session_state.chat_history.append({
