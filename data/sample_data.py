@@ -24,12 +24,6 @@ def get_sample_guidelines() -> List[Dict[str, Any]]:
             "title": "Lipid Management in Cardiovascular Disease",
             "source": "American Heart Association",
             "lastUpdated": "Mar 2024"
-        },
-        {
-            "id": "4",
-            "title": "HER2+ Breast Cancer - NCCN Guidelines",
-            "source": "National Comprehensive Cancer Network",
-            "lastUpdated": "Feb 2024"
         }
     ]
 
