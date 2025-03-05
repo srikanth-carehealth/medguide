@@ -23,10 +23,11 @@ def render_sidebar():
         st.markdown("### Generate Note")
         
         # Custom condition input
-        condition = st.text_input("Enter medical condition", value="Diabetes")
+        #condition = st.text_input("Enter medical condition", value="Diabetes")
+        condition = "Diabetes" 
         
         # Sample conditions suggestions
-        st.caption("Example conditions: Diabetes, HER2+ Breast Cancer, Hypertension, Hyperlipidemia")
+        st.caption("Example conditions: Diabetes")
         
         # Generate note button
         if st.button("📝 Generate Note", use_container_width=True):
