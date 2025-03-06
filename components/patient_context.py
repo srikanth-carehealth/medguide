@@ -12,7 +12,7 @@ from datetime import datetime
 # Function to fetch patient data from Express server
 def fetch_patient_data():
     try:
-        response = requests.get('http://localhost:3001/api/patient')
+        response = requests.get('http://localhost:8080/api/patient')
         if response.status_code == 200:
             raw_data = response.json()
             print(f"Raw FHIR patient data: {raw_data}")  # Log the raw data

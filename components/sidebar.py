@@ -22,18 +22,22 @@ def render_sidebar():
         # Note Generator with Custom Condition
         st.markdown("### Generate Note")
         
-        # Custom condition input
-        #condition = st.text_input("Enter medical condition", value="Diabetes")
-        condition = "Diabetes" 
+        # Custom condition input - make this a dropdown to avoid typos
+        condition_options = ["Breast Cancer", "Diabetes", "Hypertension", "Cardiovascular Disease"]
+        condition = st.selectbox("Select medical condition", condition_options, index=0)
         
         # Sample conditions suggestions
-        st.caption("Example conditions: Diabetes")
+        st.caption("Or enter a custom condition")
+        custom_condition = st.text_input("Custom condition (optional)")
+        
+        # Use custom condition if provided, otherwise use the selected one
+        final_condition = custom_condition if custom_condition else condition
         
         # Generate note button
         if st.button("📝 Generate Note", use_container_width=True):
-            if condition:
+            if final_condition:
                 # Store condition in session state (lowercase for consistent processing)
-                st.session_state.selected_condition = condition.lower()
+                st.session_state.selected_condition = final_condition.lower()
                 
                 # Ensure a patient exists in session state
                 if 'current_patient' not in st.session_state or not st.session_state.current_patient:
@@ -43,7 +47,7 @@ def render_sidebar():
                 st.session_state.current_page = 'note'
                 st.rerun()
             else:
-                st.error("Please enter a medical condition")
+                st.error("Please select or enter a medical condition")
         
         st.markdown("<hr>", unsafe_allow_html=True)
         
@@ -59,6 +63,17 @@ def render_sidebar():
                 with guideline_container:
                     if st.button(f"{guideline['title']}", key=f"guideline_{guideline['id']}", use_container_width=True):
                         st.session_state.selected_guideline = guideline
+                        
+                        # If it's a condition-specific guideline, also set the condition
+                        if "diabetes" in guideline['title'].lower():
+                            st.session_state.selected_condition = "diabetes"
+                        elif "hypertension" in guideline['title'].lower():
+                            st.session_state.selected_condition = "hypertension"
+                        elif "breast cancer" in guideline['title'].lower():
+                            st.session_state.selected_condition = "breast cancer"
+                        elif "cardiovascular" in guideline['title'].lower() or "lipid" in guideline['title'].lower():
+                            st.session_state.selected_condition = "cardiovascular disease"
+                            
                         st.session_state.current_page = 'home'
                         st.rerun()
                     st.caption(f"{guideline['source']} • Updated {guideline['lastUpdated']}")
@@ -80,6 +95,17 @@ def render_sidebar():
                 with doc_container:
                     if st.button(f"{doc['title']}", key=f"doc_{doc['id']}", use_container_width=True):
                         st.session_state.selected_guideline = doc
+                        
+                        # Set condition if document title contains condition keywords
+                        if "diabetes" in doc['title'].lower():
+                            st.session_state.selected_condition = "diabetes"
+                        elif "hypertension" in doc['title'].lower():
+                            st.session_state.selected_condition = "hypertension"
+                        elif "breast cancer" in doc['title'].lower() or "mammography" in doc['title'].lower():
+                            st.session_state.selected_condition = "breast cancer"
+                        elif "cardiovascular" in doc['title'].lower() or "lipid" in doc['title'].lower():
+                            st.session_state.selected_condition = "cardiovascular disease"
+                            
                         st.session_state.current_page = 'home'
                         st.rerun()
                     st.caption(f"Uploaded by {doc['uploadedBy']} • {doc['uploadDate']}")
@@ -99,20 +125,36 @@ def render_sidebar():
                             "source": "Search Engine"
                         }
                     ]
-                    # In a real app, perform actual search
+                    
+                    # Try to infer condition from search query
+                    if "diabetes" in search_query.lower():
+                        st.session_state.selected_condition = "diabetes"
+                    elif "hypertension" in search_query.lower() or "blood pressure" in search_query.lower():
+                        st.session_state.selected_condition = "hypertension"
+                    elif "breast" in search_query.lower() and "cancer" in search_query.lower():
+                        st.session_state.selected_condition = "breast cancer"
+                    elif "heart" in search_query.lower() or "cardiovascular" in search_query.lower():
+                        st.session_state.selected_condition = "cardiovascular disease"
             
             # Recent searches
             st.markdown("#### Recent Searches")
             recent_searches = [
-                "diabetes medication adjustment when HbA1c > 8%",
+                "breast cancer treatment options",
                 "hypertension treatment in patients with diabetes",
                 "statin recommendations for diabetic patients"
             ]
             
             for search in recent_searches:
                 if st.button(f"🕒 {search}", key=f"search_{search}", use_container_width=True):
-                    # Set search query and perform search
-                    pass
+                    # Set condition based on search content
+                    if "diabetes" in search.lower():
+                        st.session_state.selected_condition = "diabetes"
+                    elif "hypertension" in search.lower() or "blood pressure" in search.lower():
+                        st.session_state.selected_condition = "hypertension"
+                    elif "breast" in search.lower() and "cancer" in search.lower():
+                        st.session_state.selected_condition = "breast cancer"
+                    elif "heart" in search.lower() or "cardiovascular" in search.lower() or "statin" in search.lower():
+                        st.session_state.selected_condition = "cardiovascular disease"
         
         # Settings and help
         st.markdown("<hr>", unsafe_allow_html=True)

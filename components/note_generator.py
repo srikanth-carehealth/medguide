@@ -2,6 +2,7 @@
 # components/note_generator.py
 # =====================================
 import streamlit as st
+import streamlit.components.v1 as components  # Import for st.components.v1.html
 import json
 import time
 from utils.claude_api import ClaudeAPI
@@ -59,7 +60,7 @@ def render_note_generator():
     """, unsafe_allow_html=True)
     
     # Patient context banner
-    st.markdown(f"""
+    patient_context_html = f"""
     <div style="background-color: {theme_light}; padding: 0.75rem; border-bottom: 1px solid rgba(0,0,0,0.1);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
@@ -71,7 +72,8 @@ def render_note_generator():
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    components.html(patient_context_html, height=50)  # Adjust height as needed
     
     # Main content
     st.markdown("""
@@ -142,15 +144,14 @@ def render_note_generator():
                     st.session_state.note_editing = False
                     st.rerun()
         else:
-            st.markdown("""
-            <div class="note-container">
-            """, unsafe_allow_html=True)
-            
             # Format the note with proper line breaks
             formatted_note = st.session_state.current_note.replace("\n", "<br>")
-            st.markdown(f"<div>{formatted_note}</div>", unsafe_allow_html=True)
-            
-            st.markdown("</div>", unsafe_allow_html=True)
+            note_html = f"""
+            <div class="note-container" style="line-height: 1.6; font-size: 0.875rem;">
+                <div style="margin-bottom: 1rem;">{formatted_note}</div>
+            </div>
+            """
+            components.html(note_html, height=400)  # Increased height to accommodate more content
         
         # Clinical considerations for HER2+ breast cancer
         if condition_type == "her2":
