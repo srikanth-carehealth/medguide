@@ -32,6 +32,7 @@ class ClaudeAPI:
         self, 
         query: str, 
         patient_context: Dict[str, Any], 
+        condition: str = "general",
         document_ids: List[str] = None,
         document_text: str = None
     ) -> Dict[str, Any]:
@@ -41,6 +42,7 @@ class ClaudeAPI:
         Args:
             query: The specific question or request
             patient_context: Patient data dictionary
+            condition: The medical condition context (e.g., "diabetes", "breast cancer")
             document_ids: Optional list of guideline document IDs 
             document_text: Optional full text of the document
             
@@ -49,15 +51,17 @@ class ClaudeAPI:
         """
         # If we're in demo mode, return mock data
         if self.api_key == 'demo_key':
-            return self._get_mock_response(query, patient_context)
+            return self._get_mock_response(query, patient_context, condition)
         
         # Format patient context for prompt
         patient_info = self._format_patient_context(patient_context)
         
-        # Build system prompt
+        # Build system prompt with condition context
         system_prompt = f"""You are a medical AI assistant helping a healthcare provider understand guidelines and make treatment decisions.
         
 Your task is to analyze medical guidelines and provide accurate, clinically relevant information that is personalized to the specific patient.
+
+The primary condition being discussed is: {condition}
 
 When answering questions:
 1. Only use information explicitly stated in the guidelines.
@@ -71,26 +75,26 @@ When answering questions:
 PATIENT CONTEXT:
 {patient_info}
 
-Guidelines should be interpreted in light of this specific patient's clinical context."""
+Guidelines should be interpreted in light of this specific patient's clinical context and the primary condition: {condition}."""
         
         # Build main prompt
         if document_text:
-            main_prompt = f"""I have a question about the following medical guideline:
+            main_prompt = f"""I have a question about {condition} based on the following medical guideline:
 
 {document_text[:50000]}  # Limit document text to avoid token limits
 
 My question is: {query}
 
-Please analyze this guideline in the context of my patient and answer my question."""
+Please analyze this guideline in the context of my patient and answer my question, focusing on {condition}."""
         elif document_ids:
             # In a real app, you would fetch document content based on IDs
-            main_prompt = f"""I'm reviewing guidelines with IDs: {', '.join(document_ids)}
+            main_prompt = f"""I'm reviewing guidelines with IDs: {', '.join(document_ids)} related to {condition}
 
 My question is: {query}
 
-Please provide relevant recommendations from these guidelines for my patient."""
+Please provide relevant recommendations from these guidelines for my patient with {condition}."""
         else:
-            main_prompt = query
+            main_prompt = f"""With regard to {condition}, {query}"""
         
         # Call Anthropic API
         try:
@@ -136,6 +140,10 @@ Age: {patient.get('age', 'Unknown')}
 Gender: {patient.get('gender', 'Unknown')}
 """
         
+        # Add diagnosis if available
+        if patient.get('diagnosis'):
+            patient_str += f"Diagnosis: {patient.get('diagnosis')}\n"
+        
         # Add vital signs if available
         vitals = patient.get('vitals', {})
         if vitals:
@@ -149,7 +157,7 @@ Vital Signs:
 """
 
         # Add lab values if available
-        labs = patient.get('labs', {})
+        labs = patient.get('recentLabs', {}) or patient.get('labs', {})
         if labs:
             patient_str += "\nLab Values:\n"
             for lab, value in labs.items():
@@ -219,6 +227,12 @@ Vital Signs:
                                 source_match = "ADA Standards of Medical Care in Diabetes"
                             elif "jnc" in lower_text:
                                 source_match = "JNC Guidelines"
+                            elif "nccn" in lower_text:
+                                source_match = "NCCN Guidelines for Breast Cancer"
+                            elif "asco" in lower_text:
+                                source_match = "ASCO Guidelines"
+                            elif "breast" in lower_text and "cancer" in lower_text:
+                                source_match = "Breast Cancer Treatment Guidelines"
                             else:
                                 source_match = "Clinical Guidelines"
                             
@@ -460,46 +474,127 @@ Vital Signs:
                 "content": content
             }
     
-    def _get_mock_response(self, query: str, patient_context: Dict[str, Any]) -> Dict[str, List[Dict[str, str]]]:
-        """Return mock data for demo purposes."""
-        # Create dynamic mock responses based on query
+    def _get_mock_response(self, query: str, patient_context: Dict[str, Any], condition: str = "general") -> Dict[str, List[Dict[str, str]]]:
+        """Return mock data for demo purposes based on the condition specified."""
+        # Create dynamic mock responses based on query and condition
         time.sleep(0.5)  # Simulate API delay
         
-        if "medication" in query.lower() or "regimen" in query.lower():
-            return {
-                "recommendations": [
-                    {
-                        "explanation": "The patient's current BP is 142/88, which is above the recommended target for patients with diabetes.",
-                        "text": "Target BP should be <140/90 mmHg for most patients with diabetes and hypertension.",
-                        "source": "JNC 8 Guidelines",
-                        "page": "18"
-                    },
-                    {
-                        "explanation": "The patient's HbA1c is 8.2%, which is above the recommended target.",
-                        "text": "For patients with Type 2 diabetes with HbA1c levels > 8.0%, clinicians should consider intensifying pharmacologic therapy, adding additional agents, or referral to a specialist.",
-                        "source": "ADA Standards of Medical Care in Diabetes - 2024",
-                        "page": "42"
-                    }
-                ]
-            }
-        elif "hba1c" in query.lower() or "glucose" in query.lower():
-            return {
-                "recommendations": [
-                    {
-                        "explanation": "This patient has an HbA1c of 8.2%, indicating suboptimal glycemic control.",
-                        "text": "For patients with Type 2 diabetes with HbA1c levels > 8.0%, clinicians should consider intensifying pharmacologic therapy, adding additional agents, or referral to a specialist.",
-                        "source": "ADA Standards of Medical Care in Diabetes - 2024",
-                        "page": "42"
-                    },
-                    {
-                        "explanation": "Given the elevated HbA1c, more frequent monitoring is recommended.",
-                        "text": "When glycemic targets are not being met, quarterly assessments using HbA1c testing are recommended.",
-                        "source": "ADA Standards of Medical Care in Diabetes - 2024",
-                        "page": "44"
-                    }
-                ]
-            }
-        elif "blood pressure" in query.lower() or "hypertension" in query.lower():
+        # Convert condition to lowercase for easier matching
+        condition = condition.lower() if condition else "general"
+        
+        # BREAST CANCER specific responses
+        if "breast cancer" in condition:
+            # Breast cancer treatment
+            if "treatment" in query.lower() or "options" in query.lower():
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "Based on the patient's breast cancer diagnosis, here are the standard treatment options:",
+                            "text": "Treatment options for breast cancer include surgery (lumpectomy or mastectomy), radiation therapy, chemotherapy, hormone therapy, and targeted therapy. The specific treatment plan depends on the cancer stage, tumor characteristics, and patient factors.",
+                            "source": "NCCN Guidelines for Breast Cancer",
+                            "page": "42"
+                        }
+                    ]
+                }
+            # Breast cancer screening
+            elif "screening" in query.lower():
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "Current breast cancer screening guidelines recommend:",
+                            "text": "Women at average risk of breast cancer should be offered screening mammography starting at age 40. The decision to start screening mammography before age 50 should be individualized and take patient context into account.",
+                            "source": "American Cancer Society Guidelines",
+                            "page": "18"
+                        }
+                    ]
+                }
+            # Breast cancer follow-up
+            elif "follow-up" in query.lower() or "monitoring" in query.lower():
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "For patients with a history of breast cancer, follow-up protocols include:",
+                            "text": "Follow-up after primary breast cancer treatment should include history/physical examination every 4-6 months for 5 years, then annually; mammography annually; and breast awareness education.",
+                            "source": "ASCO Guidelines",
+                            "page": "27"
+                        }
+                    ]
+                }
+            # Genetic testing for breast cancer
+            elif "genetic" in query.lower() or "testing" in query.lower():
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "Regarding genetic testing for breast cancer patients:",
+                            "text": "Genetic testing should be offered to patients with a personal history of breast cancer and one or more of the following: diagnosed at age ≤45, triple-negative breast cancer at age ≤60, or a significant family history of breast, ovarian, pancreatic, or prostate cancer.",
+                            "source": "NCCN Genetic/Familial High-Risk Assessment Guidelines",
+                            "page": "35"
+                        }
+                    ]
+                }
+            # Default breast cancer response
+            else:
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "General approach to breast cancer management:",
+                            "text": "Breast cancer treatment should be individualized based on tumor characteristics, disease stage, and patient preferences. A multidisciplinary approach involving surgical oncology, medical oncology, radiation oncology, pathology, and radiology is recommended.",
+                            "source": "NCCN Clinical Practice Guidelines in Oncology: Breast Cancer",
+                            "page": "12"
+                        }
+                    ]
+                }
+                
+        # DIABETES specific responses
+        elif "diabetes" in condition:
+            if "medication" in query.lower() or "regimen" in query.lower():
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "The patient's current BP is 142/88, which is above the recommended target for patients with diabetes.",
+                            "text": "Target BP should be <140/90 mmHg for most patients with diabetes and hypertension.",
+                            "source": "JNC 8 Guidelines",
+                            "page": "18"
+                        },
+                        {
+                            "explanation": "The patient's HbA1c is 8.2%, which is above the recommended target.",
+                            "text": "For patients with Type 2 diabetes with HbA1c levels > 8.0%, clinicians should consider intensifying pharmacologic therapy, adding additional agents, or referral to a specialist.",
+                            "source": "ADA Standards of Medical Care in Diabetes - 2024",
+                            "page": "42"
+                        }
+                    ]
+                }
+            elif "hba1c" in query.lower() or "glucose" in query.lower():
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "This patient has an HbA1c of 8.2%, indicating suboptimal glycemic control.",
+                            "text": "For patients with Type 2 diabetes with HbA1c levels > 8.0%, clinicians should consider intensifying pharmacologic therapy, adding additional agents, or referral to a specialist.",
+                            "source": "ADA Standards of Medical Care in Diabetes - 2024",
+                            "page": "42"
+                        },
+                        {
+                            "explanation": "Given the elevated HbA1c, more frequent monitoring is recommended.",
+                            "text": "When glycemic targets are not being met, quarterly assessments using HbA1c testing are recommended.",
+                            "source": "ADA Standards of Medical Care in Diabetes - 2024",
+                            "page": "44"
+                        }
+                    ]
+                }
+            else:
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "Based on the patient's clinical profile with Type 2 diabetes and hypertension.",
+                            "text": "Regular comprehensive diabetes care visits are recommended, including medication review, screen for complications, and reinforcement of self-management behaviors.",
+                            "source": "ADA Standards of Medical Care in Diabetes - 2024",
+                            "page": "35"
+                        }
+                    ]
+                }
+                
+        # HYPERTENSION specific responses
+        elif "hypertension" in condition or "blood pressure" in query.lower():
             return {
                 "recommendations": [
                     {
@@ -510,26 +605,29 @@ Vital Signs:
                     }
                 ]
             }
-        elif "assessment" in query.lower() and "plan" in query.lower() and "note" in query.lower():
-            return {
-                "recommendations": [
-                    {
-                        "explanation": "Here's a template for the assessment and plan note.",
-                        "text": "For patients with diabetes and hypertension, include both glycemic and BP targets in the plan.",
-                        "source": "Best Practice Guidelines",
-                        "page": "5"
-                    }
-                ]
-            }
+            
+        # Generic fallback for other conditions
         else:
-            # Generic fallback response
-            return {
-                "recommendations": [
-                    {
-                        "explanation": "Based on the patient's clinical profile with Type 2 diabetes and hypertension.",
-                        "text": "Regular comprehensive diabetes care visits are recommended, including medication review, screen for complications, and reinforcement of self-management behaviors.",
-                        "source": "ADA Standards of Medical Care in Diabetes - 2024",
-                        "page": "35"
-                    }
-                ]
-            }
+            if "assessment" in query.lower() and "plan" in query.lower() and "note" in query.lower():
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": "Here's a template for the assessment and plan note.",
+                            "text": f"For patients with {condition}, include specific treatment targets and monitoring recommendations in the plan.",
+                            "source": "Best Practice Guidelines",
+                            "page": "5"
+                        }
+                    ]
+                }
+            else:
+                # Generic fallback response
+                return {
+                    "recommendations": [
+                        {
+                            "explanation": f"Based on the patient's clinical profile with {condition}.",
+                            "text": f"Regular comprehensive care visits are recommended for patients with {condition}, including medication review, monitoring for complications, and reinforcement of self-management behaviors.",
+                            "source": "Clinical Practice Guidelines",
+                            "page": "35"
+                        }
+                    ]
+                }
